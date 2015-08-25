@@ -1,0 +1,142 @@
+#Common
+PFS_1 %{NUMBER:rule_number}
+PFS_2 %{NUMBER:sub_rule_number}
+PFS_3 %{GREEDYDATA:anchor}
+PFS_4 %{NUMBER:tracker}
+PFS_5 (?<iface>(vmx|em)[0-9])
+PFS_6 %{GREEDYDATA:reason}
+PFS_7 %{GREEDYDATA:action}
+PFS_8 (?<direction>in|out)
+
+PFS_COMMON %{PFS_1},%{PFS_2},%{PFS_3},%{PFS_4},%{PFS_5},%{PFS_6},%{PFS_7},%{PFS_8}
+
+#IPV4
+PFS_V4_VER (4)
+PFS_V4_1 %{GREEDYDATA:tos}
+PFS_V4_2 %{GREEDYDATA:ecn}
+PFS_V4_3 %{GREEDYDATA:ttl}
+PFS_V4_4 %{GREEDYDATA:id}
+PFS_V4_5 %{GREEDYDATA:offset}
+PFS_V4_6 %{GREEDYDATA:flags}
+PFS_V4_7 %{GREEDYDATA:protocol_id}
+PFS_V4_8 %{GREEDYDATA:protocol_text}
+
+PFS_V4 %{PFS_V4_VER:ip_version},%{PFS_V4_1},%{PFS_V4_2},%{PFS_V4_3},%{PFS_V4_4},%{PFS_V4_5},%{PFS_V4_6},%{PFS_V4_7},%{PFS_V4_8}
+
+#IPV6
+PFS_V6_VER (6)
+PFS_V6_1 %{GREEDYDATA:class}
+PFS_V6_2 %{GREEDYDATA:flow_label}
+PFS_V6_3 %{GREEDYDATA:hop_limit}
+PFS_V6_4 %{WORD:protocol_text}
+PFS_V6_5 %{WORD:protocol_id}
+
+PFS_V6 %{PFS_V6_VER:ip_version},%{PFS_V6_1},%{PFS_V6_2},%{PFS_V6_3},%{PFS_V6_4},%{PFS_V6_5}
+
+
+#Options in v6 - Not really sure on what do what
+PFS_V6O_1 %{GREEDYDATA:class}
+PFS_V6O_2 %{GREEDYDATA:flow_label}
+PFS_V6O_3 %{GREEDYDATA:hop_limit}
+PFS_V6O_4 Options
+PFS_V6O_5 %{WORD:protocol_id}
+
+PFS_V6O %{PFS_V6_VER:ip_version},%{PFS_V6O_1},%{PFS_V6O_2},%{PFS_V6O_3},%{PFS_V6O_4:NOT_PROTOCOL},%{PFS_V6O_5}
+
+
+#IPV6-4 ipv6 and 4 same info
+PFS_VX_1 %{NOTSPACE:lenght}
+PFS_VX_2 %{IP:source_ip}
+PFS_VX_3 %{IP:dest_ip}
+
+
+PFS_IPDATA %{PFS_VX_1},%{PFS_VX_2},%{PFS_VX_3}
+
+
+PFSENSE_LINE %{PFS_COMMON},(%{PFS_V4}|%{PFS_V6O}|%{PFS_V6}),%{PFS_IPDATA}(,%{PF_PRT_SPECIFIC_DATA})?(,%{GREEDYDATA:unknown_options})?
+
+
+
+PF_PRT_SPECIFIC_DATA_UDP_TCP %{PFS_PRT_UDP}(,%{PFS_PRT_TCP})?
+PF_PRT_SPECIFIC_DATA %{PF_PRT_SPECIFIC_DATA_UDP_TCP}|%{ICMP_TYPE_DATA}
+
+#Per tcp e udp la prima parte è uguale (udp si ferma a PFS_PRT_TCPUDP)
+PFS_PRT_TCPUDP_1 %{NUMBER:source_port}
+PFS_PRT_TCPUDP_2 %{NUMBER:destination_port}
+PFS_PRT_TCPUDP_3 %{NUMBER:data_lenght}
+
+PFS_PRT_UDP %{PFS_PRT_TCPUDP_1},%{PFS_PRT_TCPUDP_2},%{PFS_PRT_TCPUDP_3}
+PFS_PRT_TCP (%{PFS_PRT_TCP_1})?,(%{PFS_PRT_TCP_2})?,(%{PFS_PRT_TCP_3})?,(%{PFS_PRT_TCP_4})?,(%{PFS_PRT_TCP_5})?,(%{PFS_PRT_TCP_6})?
+
+PFS_PRT_TCP_1 %{WORD:tcp_flags}
+PFS_PRT_TCP_2 %{NUMBER:sequence_number}
+PFS_PRT_TCP_3 %{NUMBER:ack_number}
+PFS_PRT_TCP_4 %{NUMBER:tcp_window}
+PFS_PRT_TCP_5 %{WORD:urg}
+PFS_PRT_TCP_6 %{GREEDYDATA:tcp_options}
+
+
+
+
+ICMP_TYPE_DATA %{ICMP_ECHO_DATA}|%{ICMP_PROT_UNR}|%{ICMP_PORT_UNR}|%{ICMP_FRAGM}|%{ICMP_TSTAMP}|%{ICMP_TREPL}|%{IGMP_INFO}|%{CARP_TYPE}|%{ICMP_DESC}
+
+#ICMP_TYPE=Request or Reply (echo data)
+ICMP_REQREP_TEXT reply
+ICMP_REQREP_1 %{NUMBER:icmp_id}
+ICMP_REQREP_2 %{NUMBER:icmp_seq}
+ICMP_ECHO_DATA %{ICMP_REQREP_TEXT:icmp_type},%{ICMP_REQREP_1},%{ICMP_REQREP_2}
+
+
+
+#ICMP_PROT_UNR icmp protocol unreachable
+ICMP_PROT_UNR_TEXT unreachproto
+ICMP_PROT_UNR_1 %{IP:icmp_destionation_ip}
+ICMP_PROT_UNR_2 %{NUMBER:icmp_protocol_id}
+ICMP_PROT_UNR %{ICMP_PROT_UNR_TEXT:icmp_type},%{ICMP_PROT_UNR_1},%{ICMP_PROT_UNR_2}
+
+
+#ICMP_PORT_UNR icmp port unreachable
+ICMP_PORT_UNR_TEXT unreachport
+ICMP_PORT_UNR_1 %{IP:icmp_destionation_ip}
+ICMP_PORT_UNR_2 %{WORD:icmp_protocol_id}
+ICMP_PORT_UNR_3 %{NUMBER:icmp_port_number}
+ICMP_PORT_UNR %{ICMP_PORT_UNR_TEXT:icmp_type},%{ICMP_PORT_UNR_1},%{ICMP_PORT_UNR_2},%{ICMP_PORT_UNR_3}
+
+
+#ICMP_OTHER (other)
+ICMP_DESC %{WORD:icmp_description}
+
+#ICMP_FRAGM Need Fragmentation
+ICMP_FRAG_TEXT needfrag
+ICMP_FRAG_1 %{IP:icmp_destionation_ip}
+ICMP_FRAG_2 %{NUMBER:icmp_MTU}
+ICMP_FRAGM %{ICMP_FRAG_TEXT:icmp_type},%{ICMP_FRAG_1},%{ICMP_FRAG_2}
+
+
+#ICMP tstamp
+ICMP_TSTAMP_TEXT tstamp
+ICMP_TSTAMP_ID %{NUMBER:icmp_tstamp_id}
+ICMP_TSTAMP_SEQ %{NUMBER:icmp_tstamp_seq}
+ICMP_TSTAMP %{ICMP_TSTAMP_TEXT},%{ICMP_TSTAMP_ID},%{ICMP_TSTAMP_SEQ}
+
+
+
+#ICMP tstampreply
+ICMP_TREPL_TEXT tstampreply
+ICMP_TREPL_OTIME %{GREEDYDATA:icmp_tstampreply_otime}
+ICMP_TREPL_RTIME %{GREEDYDATA:icmp_tstampreply_rtime}
+ICMP_TREPL_TTIME %{GREEDYDATA:icmp_tstampreply_ttime}
+ICMP_TREPL %{ICMP_TREPL_TEXT},%{ICMP_TREPL_OTIME},%{ICMP_TREPL_RTIME},%{ICMP_TREPL_TTIME}
+
+#IGMP
+IGMP_INFO datalength=%{NUMBER:igmp_datalength}
+
+
+#CARP_112 (Protocol ID 112):
+CARP_TYPE_TEXT (CARP|VRRP|carp|vrrp|vrrp2|vrrpv2)
+CARP_TTL %{NUMBER:carp_ttl}
+CARP_VHID %{NUMBER:carp_vhid}
+CARP_VERSION %{NUMBER:carp_version}
+CARP_ADVSKEW %{NUMBER:carp_advskew}
+CARP_ADVBASE %{NUMBER:carp_advbase}
+CARP_TYPE %{CARP_TYPE_TEXT:carp_type},%{CARP_TTL},%{CARP_VHID},%{CARP_VERSION},%{CARP_ADVSKEW},%{CARP_ADVBASE}
