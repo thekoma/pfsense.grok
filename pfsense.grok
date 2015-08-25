@@ -1,3 +1,12 @@
+##################################
+# GROK PATTERN LANGUAGE #
+#
+# v1.0 Koma - Andrea Cervesato 
+# 
+# 25/08/2015 #
+##################################
+
+
 #Common
 PFS_1 %{NUMBER:rule_number}
 PFS_2 %{NUMBER:sub_rule_number}
@@ -49,25 +58,20 @@ PFS_VX_1 %{NOTSPACE:lenght}
 PFS_VX_2 %{IP:source_ip}
 PFS_VX_3 %{IP:dest_ip}
 
-
+#IPV4/6 IP DATA
 PFS_IPDATA %{PFS_VX_1},%{PFS_VX_2},%{PFS_VX_3}
 
+#IP Full Line
+PFSENSE_IP (%{PFS_V4}|%{PFS_V6O}|%{PFS_V6}),%{PFS_IPDATA}
 
-PFSENSE_LINE %{PFS_COMMON},(%{PFS_V4}|%{PFS_V6O}|%{PFS_V6}),%{PFS_IPDATA}(,%{PF_PRT_SPECIFIC_DATA})?(,%{GREEDYDATA:unknown_options})?
-
-
-
-PF_PRT_SPECIFIC_DATA_UDP_TCP %{PFS_PRT_UDP}(,%{PFS_PRT_TCP})?
-PF_PRT_SPECIFIC_DATA %{PF_PRT_SPECIFIC_DATA_UDP_TCP}|%{ICMP_TYPE_DATA}
-
-#Per tcp e udp la prima parte è uguale (udp si ferma a PFS_PRT_TCPUDP)
+############### TCP - UDP ###############
+#TCP+UDP Common parts
 PFS_PRT_TCPUDP_1 %{NUMBER:source_port}
 PFS_PRT_TCPUDP_2 %{NUMBER:destination_port}
 PFS_PRT_TCPUDP_3 %{NUMBER:data_lenght}
 
-PFS_PRT_UDP %{PFS_PRT_TCPUDP_1},%{PFS_PRT_TCPUDP_2},%{PFS_PRT_TCPUDP_3}
-PFS_PRT_TCP (%{PFS_PRT_TCP_1})?,(%{PFS_PRT_TCP_2})?,(%{PFS_PRT_TCP_3})?,(%{PFS_PRT_TCP_4})?,(%{PFS_PRT_TCP_5})?,(%{PFS_PRT_TCP_6})?
 
+#TCP Protocol parts
 PFS_PRT_TCP_1 %{WORD:tcp_flags}
 PFS_PRT_TCP_2 %{NUMBER:sequence_number}
 PFS_PRT_TCP_3 %{NUMBER:ack_number}
@@ -75,9 +79,19 @@ PFS_PRT_TCP_4 %{NUMBER:tcp_window}
 PFS_PRT_TCP_5 %{WORD:urg}
 PFS_PRT_TCP_6 %{GREEDYDATA:tcp_options}
 
+#UDP Protocol (Common line)
+PFS_PRT_UDP %{PFS_PRT_TCPUDP_1},%{PFS_PRT_TCPUDP_2},%{PFS_PRT_TCPUDP_3}
+
+#UDP+[TCP] Protocol (Full Line)
+PFS_PRT_TCP (%{PFS_PRT_TCP_1})?,(%{PFS_PRT_TCP_2})?,(%{PFS_PRT_TCP_3})?,(%{PFS_PRT_TCP_4})?,(%{PFS_PRT_TCP_5})?,(%{PFS_PRT_TCP_6})?
+
+# Protocol specific data UDP+[TCP]
+PF_PRT_SPECIFIC_DATA_UDP_TCP %{PFS_PRT_UDP}(,%{PFS_PRT_TCP})?
+PF_PRT_SPECIFIC_DATA %{PF_PRT_SPECIFIC_DATA_UDP_TCP}|%{ICMP_TYPE_DATA}
 
 
 
+############### ICMP - IGMP - CARP ###############
 ICMP_TYPE_DATA %{ICMP_ECHO_DATA}|%{ICMP_PROT_UNR}|%{ICMP_PORT_UNR}|%{ICMP_FRAGM}|%{ICMP_TSTAMP}|%{ICMP_TREPL}|%{IGMP_INFO}|%{CARP_TYPE}|%{ICMP_DESC}
 
 #ICMP_TYPE=Request or Reply (echo data)
@@ -140,3 +154,10 @@ CARP_VERSION %{NUMBER:carp_version}
 CARP_ADVSKEW %{NUMBER:carp_advskew}
 CARP_ADVBASE %{NUMBER:carp_advbase}
 CARP_TYPE %{CARP_TYPE_TEXT:carp_type},%{CARP_TTL},%{CARP_VHID},%{CARP_VERSION},%{CARP_ADVSKEW},%{CARP_ADVBASE}
+
+
+
+#Final Matcher ( %{PFSENSE_PACKETFILTER} ) to be used in logstash configuration#
+PFSENSE_PACKETFILTER %{PFS_COMMON},%{PFSENSE_IP}(,%{PF_PRT_SPECIFIC_DATA})?(,%{GREEDYDATA:unknown_options})?
+
+#END
