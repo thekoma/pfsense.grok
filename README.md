@@ -1,1 +1,1 @@
-# pgsense.grok
+#Pattern for pfsense packet filter
